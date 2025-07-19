@@ -271,9 +271,6 @@ export default function App() {
             </div>
           )}
         </div>
-        <footer className="text-center mt-6 text-gray-500 text-xs">
-            <p>Connected to FastAPI backend at http://127.0.0.1:8000</p>
-        </footer>
       </div>
     </div>
   );
