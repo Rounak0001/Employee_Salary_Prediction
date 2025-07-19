@@ -122,6 +122,9 @@ Advanced Features: Incorporate additional factors like company size, industry, a
 
 User Authentication: Add user accounts to save prediction history.
 
+App Enhancement: It can be enhanced to a job preparation app as from predicted salary the employee can upskill or prepare for the role for which the salary is predicted.
+
+
 
 
 
