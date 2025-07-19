@@ -10,7 +10,7 @@ const BriefcaseIcon = () => (
   </svg>
 );
 
-const InputField = ({ id, label, type, value, onChange, placeholder, required = true }) => (
+const InputField = ({ id, label, type, value, onChange, placeholder, required = true, min, max }) => (
   <div>
     <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-2">
       {label}
@@ -22,6 +22,8 @@ const InputField = ({ id, label, type, value, onChange, placeholder, required = 
       onChange={onChange}
       placeholder={placeholder}
       required={required}
+      min={min}
+      max={max}
       className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
     />
   </div>
@@ -47,7 +49,6 @@ const SelectField = ({ id, label, value, onChange, children }) => (
 // --- Main App Component ---
 
 export default function App() {
-  // Extracted and sorted unique job titles from the CSV file.
   const jobTitles = [
     'Account Manager', 'Accountant', 'Administrative Assistant', 'Business Analyst',
     'Business Development Manager', 'Business Intelligence Analyst', 'CEO', 'Chief Data Officer',
@@ -97,7 +98,7 @@ export default function App() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('Male');
   const [education, setEducation] = useState("Bachelor's");
-  const [jobTitle, setJobTitle] = useState(jobTitles[0]); // Default to the first job title
+  const [jobTitle, setJobTitle] = useState(jobTitles[0]);
   const [experience, setExperience] = useState('');
 
   // State for API interaction
@@ -108,16 +109,47 @@ export default function App() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setPredictedSalary(null);
     setError(null);
+    setPredictedSalary(null);
+
+    // --- THIS IS THE FIX: Comprehensive frontend validation ---
+    if (!age || !experience) {
+        setError("Please fill out all fields.");
+        return;
+    }
+
+    const ageNum = parseInt(age, 10);
+    const expNum = parseFloat(experience);
+
+    if (isNaN(ageNum) || isNaN(expNum)) {
+        setError("Please enter valid numbers for Age and Experience.");
+        return;
+    }
+
+    if (ageNum < 18 || ageNum > 70) {
+        setError("Age must be between 18 and 70.");
+        return;
+    }
+
+    if (expNum < 0) {
+        setError("Years of Experience cannot be negative.");
+        return;
+    }
+
+    if (expNum > ageNum - 18) {
+      setError("Years of Experience cannot be greater than Age");
+      return;
+    }
+
+    // If all validation passes, proceed to the API call
+    setIsLoading(true);
 
     const formData = {
-      age: parseInt(age, 10),
+      age: ageNum,
       gender,
       education,
       jobTitle,
-      experience: parseFloat(experience),
+      experience: expNum,
     };
 
     try {
@@ -126,7 +158,12 @@ export default function App() {
     } catch (err) {
       console.error("Axios Error:", err);
       if (err.response) {
-        setError(err.response.data.detail || 'The server returned an error.');
+        if (err.response.status === 422) {
+            const errorDetail = err.response.data.detail[0];
+            setError(`Invalid Input: ${errorDetail.msg}`);
+        } else {
+            setError(err.response.data.detail || 'The server returned an error.');
+        }
       } else if (err.request) {
         setError('Network Error: Could not connect to the Python server. Is it running?');
       } else {
@@ -160,6 +197,8 @@ export default function App() {
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder="e.g., 30"
+                min="18"
+                max="60"
               />
               <SelectField id="gender" label="Gender" value={gender} onChange={(e) => setGender(e.target.value)}>
                 <option>Male</option>
@@ -174,7 +213,6 @@ export default function App() {
             </SelectField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* --- THIS IS THE CHANGE: Job Title is now a dropdown --- */}
               <SelectField id="jobTitle" label="Job Title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}>
                 {jobTitles.map(title => (
                   <option key={title} value={title}>{title}</option>
@@ -188,6 +226,7 @@ export default function App() {
                 value={experience}
                 onChange={(e) => setExperience(e.target.value)}
                 placeholder="e.g., 5"
+                min="0"
               />
             </div>
 
@@ -235,6 +274,9 @@ export default function App() {
             </div>
           )}
         </div>
+        <footer className="text-center mt-6 text-gray-500 text-xs">
+            <p>Connected to FastAPI backend at http://127.0.0.1:8000</p>
+        </footer>
       </div>
     </div>
   );

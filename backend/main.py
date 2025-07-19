@@ -7,7 +7,8 @@ import tensorflow as tf
 import joblib
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+# Updated imports for more advanced validation
+from pydantic import BaseModel, Field, model_validator
 
 # --- 2. Initialize FastAPI App ---
 app = FastAPI(
@@ -42,24 +43,34 @@ except Exception as e:
     interpreter = None
     label_encoders = None
 
-# --- 5. Define the Input Data Model ---
+# --- 5. Define the Input Data Model with Validation ---
 class EmployeeData(BaseModel):
-    age: int = Field(..., gt=0, description="Employee's age")
+    # ADDED VALIDATION: Age must be between 18 and 70.
+    age: int = Field(..., ge=18, le=70, description="Employee's age (18-70)")
     gender: str = Field(..., description="Employee's gender ('Male' or 'Female')")
     education: str = Field(..., description="Highest education level ('Bachelor's', 'Master's', 'PhD')")
     jobTitle: str = Field(..., min_length=2, description="Employee's job title")
+    # ADDED VALIDATION: Experience must be non-negative.
     experience: float = Field(..., ge=0, description="Years of work experience")
 
+    # ADDED VALIDATION: Custom rule to check if experience is realistic for the given age.
+    @model_validator(mode='after')
+    def check_experience_against_age(self):
+        age = self.age
+        experience = self.experience
+        # An employee's experience can't be more than their age minus a minimum working age (e.g., 18).
+        if experience is not None and age is not None and experience > (age - 18):
+            raise ValueError('Years of Experience cannot be greater than Age - 18.')
+        return self
 
-# --- 6. Data Preprocessing Function (Reverted to LabelEncoder for Job Title) ---
+
+# --- 6. Data Preprocessing Function ---
 def preprocess_input(data: EmployeeData):
     print(f"Received raw data: {data.model_dump()}")
     
     try:
-        # Use the loaded label encoders to transform all categorical data
         gender_encoded = label_encoders['Gender'].transform([data.gender])[0]
         education_encoded = label_encoders['Education Level'].transform([data.education])[0]
-        # Reverted to using the LabelEncoder for the job title
         job_encoded = label_encoders['Job Title'].transform([data.jobTitle])[0]
 
     except KeyError as e:
@@ -67,7 +78,6 @@ def preprocess_input(data: EmployeeData):
     except Exception as e:
          raise ValueError(f"Error during encoding: {e}")
 
-    # The final feature array in the correct order.
     processed_data = np.array(
         [data.age, gender_encoded, education_encoded, job_encoded, data.experience],
         dtype=np.float32
