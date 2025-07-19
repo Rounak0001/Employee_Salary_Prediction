@@ -268,9 +268,6 @@ export default function App() {
                   maximumFractionDigits: 0,
                 }).format(predictedSalary)}
               </p>
-              <p className="text-sm text-gray-500 mt-4">
-                This is an estimate based on your provided ML model. Actual salaries may vary.
-              </p>
             </div>
           )}
         </div>
